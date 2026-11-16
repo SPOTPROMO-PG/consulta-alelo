@@ -47,6 +47,7 @@
       if (b.t === 'titulo') raiz.appendChild(el('h2', '', b.c[0]));
       else if (b.t === 'secao') raiz.appendChild(el('div', 'secao', b.c[0]));
       else if (b.t === 'kv') { var d = el('div', 'kv'); d.appendChild(el('b', '', b.c[0])); d.appendChild(el('span', '', b.c[1] || '')); raiz.appendChild(d); }
+      else if (b.t === 'veredito') { var v = el('div', 'veredito v-' + b.c[0], b.c[1]); v.appendChild(el('small', '', b.c[2] || '')); raiz.appendChild(v); }
       else if (b.t === 'dest') { var x = el('div', 'dest', b.c[0]); x.appendChild(el('small', '', b.c[1] || '')); raiz.appendChild(x); }
       else if (b.t === 'alerta' || b.t === 'info') { var a = el('div', b.t); a.appendChild(el('b', '', b.c[0] + ': ')); a.appendChild(document.createTextNode(b.c[1] || '')); raiz.appendChild(a); }
       else if (b.t === 'ok' || b.t === 'nota') raiz.appendChild(el('div', b.t, b.c[0]));
