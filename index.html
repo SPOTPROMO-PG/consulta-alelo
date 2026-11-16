@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Consulta ALELO CAR · SPOT × P&amp;G</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root { --spot:#E3001B; --cinza:#4a4a4a; --claro:#f3f3f3; --rosa:#fdecee; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Montserrat',Arial,sans-serif; font-size:14px; color:var(--cinza); background:#fff; }
+  header { background:var(--spot); color:#fff; padding:14px 24px; display:flex; align-items:center; gap:16px; }
+  header h1 { font-weight:900; font-size:20px; margin:0; }
+  header small { opacity:.9; }
+  header button { margin-left:auto; }
+  main { max-width:1100px; margin:0 auto; padding:20px 24px 60px; }
+  nav { display:flex; gap:8px; margin-bottom:18px; border-bottom:2px solid var(--claro); }
+  nav button { background:none; border:0; padding:10px 18px; font:inherit; font-weight:700; color:var(--cinza); cursor:pointer; border-bottom:3px solid transparent; }
+  nav button.ativa { color:var(--spot); border-bottom-color:var(--spot); }
+  label { display:block; font-weight:700; margin-bottom:4px; }
+  input, textarea { font:inherit; padding:9px 10px; border:1px solid #cfcfcf; border-radius:6px; width:100%; }
+  textarea { min-height:180px; font-family:Consolas,monospace; font-size:12px; }
+  .linha { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:14px; }
+  button.p { background:var(--spot); color:#fff; border:0; padding:10px 22px; border-radius:6px; font:inherit; font-weight:700; cursor:pointer; }
+  button.p:disabled { opacity:.45; cursor:not-allowed; }
+  button.s { background:#fff; color:var(--cinza); border:1px solid #cfcfcf; padding:9px 16px; border-radius:6px; font:inherit; font-weight:700; cursor:pointer; }
+  header button.s { background:transparent; color:#fff; border-color:#fff; }
+  .msg { padding:10px 14px; border-radius:6px; margin:14px 0; }
+  .msg.erro { background:var(--rosa); border-left:4px solid var(--spot); }
+  .msg.ok { background:var(--claro); border-left:4px solid var(--cinza); }
+  .ficha h2 { color:var(--spot); font-weight:900; font-size:22px; margin:18px 0 6px; }
+  .ficha .secao { background:var(--spot); color:#fff; font-weight:700; padding:6px 12px; margin-top:16px; font-size:12px; }
+  .ficha .kv { display:grid; grid-template-columns:230px 1fr; gap:8px; padding:6px 12px; border-bottom:1px solid var(--claro); }
+  .ficha .kv b { font-weight:700; }
+  .ficha .dest { background:#fff1f2; color:var(--spot); padding:10px 12px; font-weight:900; font-size:26px; }
+  .ficha .dest small { font-size:12px; font-weight:700; margin-left:10px; }
+  .ficha .nota { color:#7a7a7a; font-size:12px; padding:4px 12px; }
+  .ficha .alerta { background:var(--rosa); padding:6px 12px; margin-top:2px; }
+  .ficha .info { background:var(--claro); padding:6px 12px; margin-top:2px; }
+  .ficha .ok { padding:6px 12px; }
+  .ficha table { width:100%; border-collapse:collapse; font-size:12px; }
+  .ficha th { background:#e9e9e9; padding:6px; text-align:center; }
+  .ficha td { padding:5px 6px; text-align:center; border-bottom:1px solid var(--claro); }
+  .ficha td:first-child { text-align:left; }
+  .oculto { display:none; }
+  .resumo { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin:14px 0; }
+  .resumo div { background:var(--claro); padding:12px; border-radius:6px; }
+  .resumo b { display:block; font-size:22px; font-weight:900; color:var(--spot); }
+  .dica { color:#7a7a7a; font-size:12px; margin-top:6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Consulta ALELO CAR</h1><small>SPOT × P&amp;G</small>
+  <button id="sair" class="s oculto" type="button">Sair</button>
+</header>
+<main>
+  <section id="tela-entrada">
+    <h2>Entrar</h2>
+    <div class="linha">
+      <div id="campo-url" class="oculto"><label for="url">Endereço do sistema (o Arthur te passa)</label><input id="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"></div>
+      <div><label for="usuario">Seu nome</label><input id="usuario" autocomplete="off" maxlength="40"></div>
+      <div><label for="codigo">Código de acesso</label><input id="codigo" type="password" autocomplete="off" maxlength="64"></div>
+    </div>
+    <button id="entrar" class="p" type="button">Entrar</button>
+    <div id="msg-entrada"></div>
+  </section>
+
+  <section id="tela-app" class="oculto">
+    <nav>
+      <button id="aba-consulta" class="ativa" type="button">Consulta</button>
+      <button id="aba-importar" type="button">Importar extrato</button>
+    </nav>
+
+    <div id="painel-consulta">
+      <div class="linha">
+        <div><label for="matricula">Matrícula</label><input id="matricula" inputmode="numeric" autocomplete="off"></div>
+        <div><label for="nome">ou parte do nome</label><input id="nome" autocomplete="off"></div>
+        <div><label for="pvalor">Valor pedido (R$) – opcional</label><input id="pvalor" inputmode="decimal" autocomplete="off"></div>
+        <div><label for="pkm">KM pedido – opcional</label><input id="pkm" inputmode="decimal" autocomplete="off"></div>
+      </div>
+      <button id="consultar" class="p" type="button">Consultar</button>
+      <div id="msg-consulta"></div>
+      <div id="ficha" class="ficha"></div>
+    </div>
+
+    <div id="painel-importar" class="oculto">
+      <label for="extrato">Cole aqui o extrato do Alelo (com o cabeçalho)</label>
+      <textarea id="extrato" spellcheck="false"></textarea>
+      <p class="dica">A coluna de CPF é removida aqui, no seu navegador, antes de enviar. Primeiro clique em <b>Conferir</b>: nada é gravado. Se estiver certo, clique em <b>Importar</b>.</p>
+      <button id="conferir" class="s" type="button">Conferir</button>
+      <button id="importar" class="p" type="button" disabled>Importar</button>
+      <div id="msg-importar"></div>
+      <div id="resumo-importar" class="resumo"></div>
+    </div>
+  </section>
+</main>
+<script src="config.js"></script>
+<script src="lib.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
