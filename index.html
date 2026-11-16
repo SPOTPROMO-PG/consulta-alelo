@@ -53,6 +53,14 @@
   .resumo { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin:14px 0; }
   .resumo div { background:var(--claro); padding:12px; border-radius:6px; }
   .resumo b { display:block; font-size:22px; font-weight:900; color:var(--spot); }
+  .passo { margin-top:22px; font-weight:900; font-size:16px; color:var(--spot); }
+  .passo span { display:inline-block; background:var(--spot); color:#fff; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; margin-right:8px; font-size:13px; }
+  .arq { border:1px solid #ddd; border-left:6px solid #bbb; border-radius:6px; padding:10px 12px; margin:8px 0; }
+  .arq.ok { border-left-color:#2e7d32; } .arq.erro { border-left-color:var(--spot); background:#fdecee; } .arq.feito { border-left-color:#2e7d32; background:#e6f4ea; }
+  .arq b { display:block; font-size:14px; } .arq small { display:block; color:#7a7a7a; margin-top:2px; }
+  .arq ul { margin:6px 0 0 18px; padding:0; font-size:13px; } .arq li { margin:2px 0; }
+  .arq .res { margin-top:8px; font-size:13px; } .arq .res .num { font-weight:900; color:var(--spot); }
+  details.colar { margin-top:10px; } details.colar summary { cursor:pointer; color:#7a7a7a; font-size:13px; }
   .dica { color:#7a7a7a; font-size:12px; margin-top:6px; }
 </style>
 </head>
@@ -75,8 +83,8 @@
 
   <section id="tela-app" class="oculto">
     <nav>
-      <button id="aba-consulta" class="ativa" type="button">Consulta</button>
-      <button id="aba-importar" type="button">Importar extrato</button>
+      <button id="aba-consulta" class="ativa" type="button">Consultar chamado</button>
+      <button id="aba-importar" type="button">Atualizar bases</button>
     </nav>
 
     <div id="painel-consulta">
@@ -92,13 +100,26 @@
     </div>
 
     <div id="painel-importar" class="oculto">
-      <label for="extrato">Cole aqui o extrato do Alelo (com o cabeçalho)</label>
-      <textarea id="extrato" spellcheck="false"></textarea>
-      <p class="dica">A coluna de CPF é removida aqui, no seu navegador, antes de enviar. Primeiro clique em <b>Conferir</b>: nada é gravado. Se estiver certo, clique em <b>Importar</b>.</p>
-      <button id="conferir" class="s" type="button">Conferir</button>
-      <button id="importar" class="p" type="button" disabled>Importar</button>
+      <h2>Atualizar as bases</h2>
+      <p class="dica">Suba os arquivos do jeito que baixou, sem abrir nem editar. O CPF e os dados pessoais <b>não saem do seu computador</b>: a tela leva só o necessário.</p>
+
+      <div class="passo"><span>1</span> Escolha os arquivos</div>
+      <p class="dica">Extrato do Alelo (<b>.xlsx</b> ou <b>.csv</b> da semana) e/ou a <b>Movimentação</b> (.xlsx). Pode escolher os dois de uma vez.</p>
+      <input id="arquivos" type="file" accept=".xlsx,.csv,.txt" multiple>
+      <div id="lista-arquivos"></div>
+      <details class="colar"><summary>Prefere colar o extrato do Alelo em vez de subir o arquivo?</summary>
+        <textarea id="extrato" spellcheck="false" placeholder="Cole aqui o extrato, com o cabeçalho"></textarea>
+        <button id="usar-texto" class="s" type="button">Usar este texto</button>
+      </details>
+
+      <div class="passo"><span>2</span> Confira o que será gravado</div>
+      <p class="dica">Nada é gravado nesta etapa. Você vê quantas linhas são novas e se há algo para decidir.</p>
+      <button id="conferir" class="s" type="button" disabled>Conferir</button>
+
+      <div class="passo"><span>3</span> Grave</div>
+      <p class="dica">Só depois de conferir. Se subir o mesmo arquivo de novo, nada se repete.</p>
+      <button id="gravar" class="p" type="button" disabled>Gravar</button>
       <div id="msg-importar"></div>
-      <div id="resumo-importar" class="resumo"></div>
     </div>
   </section>
 </main>
