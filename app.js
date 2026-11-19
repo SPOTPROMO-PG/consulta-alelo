@@ -100,7 +100,7 @@
       : numero('Limite do ciclo', q.limite || '—', 'formulário deste ciclo', q.limite ? null : { fraco: true }));
     raiz.appendChild(q.gasto && q.gasto.valor ? numero('Gasto no ciclo', q.gasto.valor, q.gasto.ate ? 'até ' + q.gasto.ate : '') : numero('Gasto no ciclo', '—', 'sem dado', { fraco: true }));
     raiz.appendChild(q.media ? numero('Média por ciclo', q.media.valor, q.media.n === 1 ? 'último ciclo fechado' : 'últimos ' + q.media.n + ' ciclos fechados') : numero('Média por ciclo', '—', 'sem histórico', { fraco: true }));
-    raiz.appendChild(km.estado === 'ok' ? numero('KM rodado', km.valor + ' km', 'Mobi7, ciclo atual')
+    raiz.appendChild(km.estado === 'ok' ? numero('KM rodado', km.valor + ' km', q.kmAte ? 'Mobi7 até ' + q.kmAte : 'Mobi7, ciclo atual')
       : km.estado === 'sem-carro' ? numero('KM rodado', 'Sem Mobi7', 'carro não vinculado', { fraco: true })
       : km.estado === 'indisponivel' ? numero('KM rodado', 'Sem dados', 'Mobi7 indisponível', { fraco: true })
       : numero('KM rodado', '—', 'Mobi7 não consultado', { fraco: true }));
@@ -278,7 +278,7 @@
       r.duvidas.slice(0, 10).forEach(function (d) { linhas.push(d.matricula + ' · ' + d.nome + ' · ' + d.placa + ' — ' + d.motivo); });
       if (r.totalDuvidas > 10) linhas.push('… e mais ' + (r.totalDuvidas - 10) + '. Mande este arquivo para o Arthur.');
     }
-    if (gravado && r.vinculosNovos) linhas.push('Próximo passo: dê duplo clique em atualizar_mobi7.bat para buscar o km dos carros novos.');
+    if (gravado && r.vinculosNovos) linhas.push('Carros novos: o km deles entra na próxima atualização do Mobi7, feita pelo Arthur.');
     return { resumo: res, linhas: linhas, temNovo: true, ok: gravado ? 'Gravado.' : 'Pronto para gravar (a lista de pessoas é sempre atualizada).' };
   }
   function processar(it, simular) {

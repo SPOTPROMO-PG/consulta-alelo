@@ -392,6 +392,7 @@
       });
       if (s.chave === 'mobi7') blocos.forEach(function (b) {
         var c = b.c || [];
+        if (b.t === 'kv' && /^Dados do Mobi7 at/.test(c[0] || '')) out.kmAte = (/(\d{2}\/\d{2})\/\d{4}/.exec(c[1] || '') || [])[1] || '';
         if (b.t === 'info' && c[0] === 'SEM MOBI7') out.km = { estado: 'sem-carro', valor: '' };
         else if (b.t === 'alerta' && c[0] === 'MOBI7') out.km = { estado: 'indisponivel', valor: '' };
         else if (b.t === 'tabela') b.linhas.forEach(function (l) { if (/^Ciclo atual/.test(l[0] || '') && l[1] !== undefined) out.km = { estado: 'ok', valor: l[1] }; });
