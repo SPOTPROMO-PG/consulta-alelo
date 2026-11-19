@@ -4,123 +4,164 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#E3001B">
 <title>Consulta ALELO CAR · SPOT × P&amp;G</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
-<style>
-  :root { --spot:#E3001B; --cinza:#4a4a4a; --claro:#f3f3f3; --rosa:#fdecee; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:'Montserrat',Arial,sans-serif; font-size:14px; color:var(--cinza); background:#fff; }
-  header { background:var(--spot); color:#fff; padding:14px 24px; display:flex; align-items:center; gap:16px; }
-  header h1 { font-weight:900; font-size:20px; margin:0; }
-  header small { opacity:.9; }
-  header button { margin-left:auto; }
-  main { max-width:1100px; margin:0 auto; padding:20px 24px 60px; }
-  nav { display:flex; gap:8px; margin-bottom:18px; border-bottom:2px solid var(--claro); }
-  nav button { background:none; border:0; padding:10px 18px; font:inherit; font-weight:700; color:var(--cinza); cursor:pointer; border-bottom:3px solid transparent; }
-  nav button.ativa { color:var(--spot); border-bottom-color:var(--spot); }
-  label { display:block; font-weight:700; margin-bottom:4px; }
-  input, textarea { font:inherit; padding:9px 10px; border:1px solid #cfcfcf; border-radius:6px; width:100%; }
-  textarea { min-height:180px; font-family:Consolas,monospace; font-size:12px; }
-  .linha { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:14px; }
-  button.p { background:var(--spot); color:#fff; border:0; padding:10px 22px; border-radius:6px; font:inherit; font-weight:700; cursor:pointer; }
-  button.p:disabled { opacity:.45; cursor:not-allowed; }
-  button.s { background:#fff; color:var(--cinza); border:1px solid #cfcfcf; padding:9px 16px; border-radius:6px; font:inherit; font-weight:700; cursor:pointer; }
-  header button.s { background:transparent; color:#fff; border-color:#fff; }
-  .msg { padding:10px 14px; border-radius:6px; margin:14px 0; }
-  .msg.erro { background:var(--rosa); border-left:4px solid var(--spot); }
-  .msg.ok { background:var(--claro); border-left:4px solid var(--cinza); }
-  .ficha h2 { color:var(--spot); font-weight:900; font-size:22px; margin:18px 0 6px; }
-  .ficha .secao { background:var(--spot); color:#fff; font-weight:700; padding:6px 12px; margin-top:16px; font-size:12px; }
-  .ficha .kv { display:grid; grid-template-columns:230px 1fr; gap:8px; padding:6px 12px; border-bottom:1px solid var(--claro); }
-  .ficha .kv b { font-weight:700; }
-  .ficha .dest { background:#fff1f2; color:var(--spot); padding:10px 12px; font-weight:900; font-size:26px; }
-  .ficha .dest small { font-size:12px; font-weight:700; margin-left:10px; }
-  .ficha .nota { color:#7a7a7a; font-size:12px; padding:4px 12px; }
-  .ficha .veredito { padding:14px 14px; font-weight:900; font-size:22px; margin-top:6px; border-left:8px solid; }
-  .ficha .veredito small { display:block; font-size:13px; font-weight:700; margin-top:4px; color:#4a4a4a; }
-  .ficha .v-ok { background:#e6f4ea; border-color:#2e7d32; color:#1b5e20; }
-  .ficha .v-conferir { background:#fff4d6; border-color:#e0a100; color:#7a5200; }
-  .ficha .v-parar { background:#fdecee; border-color:var(--spot); color:var(--spot); }
-  .ficha .alerta { background:var(--rosa); padding:6px 12px; margin-top:2px; }
-  .ficha .info { background:var(--claro); padding:6px 12px; margin-top:2px; }
-  .ficha .ok { padding:6px 12px; }
-  .ficha table { width:100%; border-collapse:collapse; font-size:12px; }
-  .ficha th { background:#e9e9e9; padding:6px; text-align:center; }
-  .ficha td { padding:5px 6px; text-align:center; border-bottom:1px solid var(--claro); }
-  .ficha td:first-child { text-align:left; }
-  .oculto { display:none; }
-  .resumo { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin:14px 0; }
-  .resumo div { background:var(--claro); padding:12px; border-radius:6px; }
-  .resumo b { display:block; font-size:22px; font-weight:900; color:var(--spot); }
-  .passo { margin-top:22px; font-weight:900; font-size:16px; color:var(--spot); }
-  .passo span { display:inline-block; background:var(--spot); color:#fff; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; margin-right:8px; font-size:13px; }
-  .arq { border:1px solid #ddd; border-left:6px solid #bbb; border-radius:6px; padding:10px 12px; margin:8px 0; }
-  .arq.ok { border-left-color:#2e7d32; } .arq.erro { border-left-color:var(--spot); background:#fdecee; } .arq.feito { border-left-color:#2e7d32; background:#e6f4ea; }
-  .arq b { display:block; font-size:14px; } .arq small { display:block; color:#7a7a7a; margin-top:2px; }
-  .arq ul { margin:6px 0 0 18px; padding:0; font-size:13px; } .arq li { margin:2px 0; }
-  .arq .res { margin-top:8px; font-size:13px; } .arq .res .num { font-weight:900; color:var(--spot); }
-  details.colar { margin-top:10px; } details.colar summary { cursor:pointer; color:#7a7a7a; font-size:13px; }
-  .dica { color:#7a7a7a; font-size:12px; margin-top:6px; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <h1>Consulta ALELO CAR</h1><small>SPOT × P&amp;G</small>
-  <button id="sair" class="s oculto" type="button">Sair</button>
-</header>
-<main>
-  <section id="tela-entrada">
-    <h2>Entrar</h2>
-    <div class="linha">
-      <div id="campo-url" class="oculto"><label for="url">Endereço do sistema (o Arthur te passa)</label><input id="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"></div>
-      <div><label for="usuario">Seu nome</label><input id="usuario" autocomplete="off" maxlength="40"></div>
-      <div><label for="codigo">Código de acesso</label><input id="codigo" type="password" autocomplete="off" maxlength="64"></div>
+<header class="topo">
+  <div class="topo-in">
+    <span class="marca" aria-hidden="true">SPOT</span>
+    <h1>Consulta ALELO CAR<small>SPOT × P&amp;G · complemento de combustível</small></h1>
+    <div class="topo-dir">
+      <span id="quem" class="quem oculto"></span>
+      <button id="sair" class="bt bt-topo oculto" type="button">Sair</button>
     </div>
-    <button id="entrar" class="p" type="button">Entrar</button>
-    <div id="msg-entrada"></div>
+  </div>
+</header>
+
+<main>
+  <!-- ============ ENTRAR ============ -->
+  <section id="tela-entrada" class="entrada">
+    <div class="cartao">
+      <h2 class="titulo-sec">Entrar</h2>
+      <p class="sub">Use o seu nome e o código de acesso que o Arthur passou. O nome fica no registro das consultas.</p>
+      <div class="grade">
+        <div id="campo-url" class="oculto">
+          <label for="url">Endereço do sistema <span class="opc">(o Arthur te passa)</span></label>
+          <input id="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+        </div>
+        <div>
+          <label for="usuario">Seu nome</label>
+          <input id="usuario" autocomplete="off" maxlength="40" placeholder="Ex.: Felipe">
+        </div>
+        <div>
+          <label for="codigo">Código de acesso</label>
+          <div class="campo-senha">
+            <input id="codigo" type="password" autocomplete="off" maxlength="64" placeholder="Letras e números, sem espaço">
+            <button id="ver-codigo" class="bt bt-g" type="button" aria-pressed="false">Mostrar</button>
+          </div>
+        </div>
+      </div>
+      <div class="acoes"><button id="entrar" class="bt bt-p" type="button">Entrar</button></div>
+      <div id="msg-entrada" role="status" aria-live="polite"></div>
+    </div>
   </section>
 
+  <!-- ============ APP ============ -->
   <section id="tela-app" class="oculto">
-    <nav>
-      <button id="aba-consulta" class="ativa" type="button">Consultar chamado</button>
-      <button id="aba-importar" type="button">Atualizar bases</button>
-    </nav>
+    <div class="abas" role="tablist">
+      <button id="aba-consulta" class="ativa" type="button" role="tab" aria-selected="true">Consultar chamado</button>
+      <button id="aba-importar" type="button" role="tab" aria-selected="false">Atualizar bases</button>
+    </div>
 
-    <div id="painel-consulta">
-      <div class="linha">
-        <div><label for="matricula">Matrícula</label><input id="matricula" inputmode="numeric" autocomplete="off"></div>
-        <div><label for="nome">ou parte do nome</label><input id="nome" autocomplete="off"></div>
-        <div><label for="pvalor">Valor pedido (R$) – opcional</label><input id="pvalor" inputmode="decimal" autocomplete="off"></div>
-        <div><label for="pkm">KM pedido – opcional</label><input id="pkm" inputmode="decimal" autocomplete="off"></div>
+    <!-- consulta -->
+    <div id="painel-consulta" role="tabpanel">
+      <div class="cartao">
+        <h2 class="titulo-sec">Qual chamado você vai analisar?</h2>
+        <p class="sub">Digite a matrícula de quem abriu o chamado. Se não souber, digite parte do nome.</p>
+        <div class="grade grade-2">
+          <div class="campo-grande">
+            <label for="matricula">Matrícula</label>
+            <input id="matricula" inputmode="numeric" autocomplete="off" placeholder="Ex.: 12345">
+          </div>
+          <div>
+            <label for="nome">ou parte do nome</label>
+            <input id="nome" autocomplete="off" placeholder="Ex.: silva">
+          </div>
+        </div>
+        <div id="erro-busca" class="erro-campo" role="alert"></div>
+        <div class="grade grade-2" style="margin-top:14px">
+          <div>
+            <label for="pvalor">Valor que a pessoa pediu (R$) <span class="opc">· opcional</span></label>
+            <input id="pvalor" inputmode="decimal" autocomplete="off" placeholder="Ex.: 200">
+          </div>
+          <div>
+            <label for="pkm">KM que a pessoa pediu <span class="opc">· opcional</span></label>
+            <input id="pkm" inputmode="decimal" autocomplete="off" placeholder="Ex.: 350">
+          </div>
+        </div>
+        <p class="dica">Se o chamado pede um valor ou km, preencha: a resposta passa a considerar o que foi pedido.</p>
+        <div class="acoes">
+          <button id="consultar" class="bt bt-p" type="button">Consultar</button>
+          <button id="limpar" class="bt bt-s oculto" type="button">Nova consulta</button>
+        </div>
+        <div id="msg-consulta" role="status" aria-live="polite"></div>
       </div>
-      <button id="consultar" class="p" type="button">Consultar</button>
-      <div id="msg-consulta"></div>
-      <div id="ficha" class="ficha"></div>
+
+      <div id="vazio" class="vazio">
+        <b>Como ler a resposta</b>
+        Depois de consultar, o quadro no topo diz o que fazer:
+        <div class="passos-curtos">
+          <div><b class="verde-t">Verde · PODE ENVIAR</b>Sem alertas e extrato em dia. Siga com o valor mostrado.</div>
+          <div><b class="ambar-t">Amarelo · CONFIRA ANTES</b>Leia os pontos listados. Se não resolver, pergunte ao Rafael ou à Renata.</div>
+          <div><b class="vermelho-t">Vermelho · NÃO DECIDA</b>Falta formulário ou o extrato está velho. Resolva o que está escrito.</div>
+        </div>
+      </div>
+      <div id="ficha" class="ficha" aria-live="polite"></div>
     </div>
 
-    <div id="painel-importar" class="oculto">
-      <h2>Atualizar as bases</h2>
-      <p class="dica">Suba os arquivos do jeito que baixou, sem abrir nem editar. O CPF e os dados pessoais <b>não saem do seu computador</b>: a tela leva só o necessário.</p>
+    <!-- atualizar bases -->
+    <div id="painel-importar" class="oculto" role="tabpanel">
+      <div class="cartao">
+        <h2 class="titulo-sec">Atualizar as bases</h2>
+        <p class="sub">Faça toda segunda-feira, nesta ordem. O CPF e os dados pessoais <b>não saem do seu computador</b>: a tela envia só o necessário.</p>
 
-      <div class="passo"><span>1</span> Escolha os arquivos</div>
-      <p class="dica">Extrato do Alelo (<b>.xlsx</b> ou <b>.csv</b> da semana) e/ou a <b>Movimentação</b> (.xlsx). Pode escolher os dois de uma vez.</p>
-      <input id="arquivos" type="file" accept=".xlsx,.csv,.txt" multiple>
-      <div id="lista-arquivos"></div>
-      <details class="colar"><summary>Prefere colar o extrato do Alelo em vez de subir o arquivo?</summary>
-        <textarea id="extrato" spellcheck="false" placeholder="Cole aqui o extrato, com o cabeçalho"></textarea>
-        <button id="usar-texto" class="s" type="button">Usar este texto</button>
-      </details>
+        <div id="passo-1" class="passo">
+          <div class="num"><span>1</span></div>
+          <div class="corpo">
+            <h3>Escolha os arquivos</h3>
+            <p class="sub">Extrato do Alelo da semana (.xlsx ou .csv) e/ou a Movimentação (.xlsx), do jeito que baixou, sem abrir nem editar. Pode escolher os dois de uma vez.</p>
+            <label id="zona" class="zona" for="arquivos">
+              <b>Clique aqui para escolher os arquivos</b>
+              <span>ou arraste e solte aqui</span>
+              <input id="arquivos" type="file" accept=".xlsx,.csv,.txt" multiple>
+            </label>
+            <div id="lista-arquivos"></div>
+            <details class="colar"><summary>Prefere colar o extrato do Alelo em vez de subir o arquivo?</summary>
+              <textarea id="extrato" spellcheck="false" placeholder="Cole aqui o extrato, com o cabeçalho"></textarea>
+              <div class="acoes" style="margin-top:8px"><button id="usar-texto" class="bt bt-s" type="button">Usar este texto</button></div>
+            </details>
+          </div>
+        </div>
 
-      <div class="passo"><span>2</span> Confira o que será gravado</div>
-      <p class="dica">Nada é gravado nesta etapa. Você vê quantas linhas são novas e se há algo para decidir.</p>
-      <button id="conferir" class="s" type="button" disabled>Conferir</button>
+        <div id="passo-2" class="passo parado">
+          <div class="num"><span>2</span></div>
+          <div class="corpo">
+            <h3>Confira o que será gravado</h3>
+            <p class="sub">Nada é gravado nesta etapa. Você vê quantas linhas são novas e se há algo para decidir.</p>
+            <button id="conferir" class="bt bt-s" type="button" disabled>Conferir</button>
+          </div>
+        </div>
 
-      <div class="passo"><span>3</span> Grave</div>
-      <p class="dica">Só depois de conferir. Se subir o mesmo arquivo de novo, nada se repete.</p>
-      <button id="gravar" class="p" type="button" disabled>Gravar</button>
-      <div id="msg-importar"></div>
+        <div id="passo-3" class="passo parado">
+          <div class="num"><span>3</span></div>
+          <div class="corpo">
+            <h3>Grave</h3>
+            <p class="sub">Só depois de conferir. Se subir o mesmo arquivo de novo, nada se repete.</p>
+            <button id="gravar" class="bt bt-p" type="button" disabled>Gravar</button>
+            <p id="dica-gravar" class="dica-bt" style="margin-top:8px">Escolha um arquivo e clique em Conferir primeiro.</p>
+          </div>
+        </div>
+        <div id="msg-importar" role="status" aria-live="polite"></div>
+      </div>
     </div>
+
+    <details class="ajuda">
+      <summary>Precisa de ajuda?</summary>
+      <div class="cartao">
+        <b>Se aparecer um erro</b>
+        <ul>
+          <li><b>"Código inválido"</b>: confira o código. Com 5 erros seguidos a tela trava por 15 minutos: espere.</li>
+          <li><b>"Erro inesperado"</b>: tente de novo uma vez. Se repetir, avise o Rafael.</li>
+          <li><b>"sem formulário deste ciclo"</b>: o formulário ainda não foi lançado. Não decida pela ficha; avise a Renata.</li>
+          <li><b>Qualquer outra coisa</b>: tire um print (sem o código) e mande para o Rafael. Não mexa na planilha.</li>
+        </ul>
+        <p class="nota" style="margin-top:12px">Quem aprova o complemento continua sendo a Renata. Nunca envie o código por mensagem aberta.</p>
+      </div>
+    </details>
   </section>
 </main>
 <script src="config.js"></script>

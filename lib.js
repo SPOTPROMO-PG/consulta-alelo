@@ -260,6 +260,95 @@
     return m.map(function (row) { return row.map(function (c) { c = String(c); return /[\t\n\r"]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join('\t'); }).join('\n');
   }
 
-  var api = { arquivoParaMatriz: arquivoParaMatriz, lerXlsx: lerXlsx, parseCSV: parseCSV, detectarTipo: detectarTipo, reduzirMovimentacao: reduzirMovimentacao, paraTSV: paraTSV, serialParaTexto: serialParaTexto, norm: norm, parseTSV: parseTSV, achaCabecalho: achaCabecalho, removerCpf: removerCpf, agrupar: agrupar, msgErro: msgErro, urlValida: urlValida };
+  // ---------------------------------------------------------------------------------------------
+  // Ficha em cartões: transforma a lista de blocos do servidor em uma estrutura que a tela desenha.
+  // O servidor continua mandando a mesma lista; só a apresentação mudou.
+  // ---------------------------------------------------------------------------------------------
+  var ROTULO_ALERTA = {
+    L1: 'Uso acima do limite', L2: 'Uso muito baixo ou sem compra', L3: 'Sinais nos abastecimentos', R2: 'Limite fora da faixa', V1: 'Limite variou',
+    M1: 'Km do carro muito baixo', M2: 'Km do Mobi7 fora do esperado', M3: 'Dois carros no mesmo dia',
+    SEM_MOBI7: 'Sem Mobi7', MOBI7: 'Mobi7 indisponível', MOBI7_DESATUALIZADO: 'Mobi7 desatualizado', INFO: 'Informação'
+  };
+  /** Nome legível de um código de alerta (desconhecido vira texto simples: nunca quebra a tela). */
+  function rotuloAlerta(codigo) {
+    var c = String(codigo === null || codigo === undefined ? '' : codigo).trim();
+    if (ROTULO_ALERTA[c]) return ROTULO_ALERTA[c];
+    var t = c.replace(/_/g, ' ').toLowerCase();
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Aviso';
+  }
+
+  var SECOES = [   // início do título que o servidor manda -> nome na tela
+    [/^O QUE PEDE ATEN/, 'O que pede atenção', 'atencao', true],
+    [/^CICLO ATUAL/, 'Ciclo atual', 'ciclo', true],
+    [/^KM DO CARRO/, 'KM do carro (Mobi7)', 'mobi7', false],
+    [/^KM PAGO/, 'KM pago nos ciclos', 'kmpago', false],
+    [/^GASTO ALELO/, 'Gasto no Alelo por ciclo', 'gasto', false],
+    [/^.LTIMOS ABASTECIMENTOS/, 'Últimos abastecimentos', 'abastecimentos', false]
+  ];
+  function casoFrase(t) { t = String(t || '').toLowerCase(); return t.charAt(0).toUpperCase() + t.slice(1); }
+  function infoSecao(titulo) {
+    for (var i = 0; i < SECOES.length; i++) {
+      if (SECOES[i][0].test(titulo)) {
+        var m = /\((\d+)\)\s*$/.exec(titulo), resto = '';
+        if (SECOES[i][2] === 'ciclo') resto = titulo.replace(/^CICLO ATUAL\s*/, '').trim();
+        return { nome: SECOES[i][1], chave: SECOES[i][2], aberta: SECOES[i][3], contagem: m ? Number(m[1]) : null, detalhe: resto };
+      }
+    }
+    return { nome: casoFrase(titulo), chave: 'outra', aberta: false, contagem: null, detalhe: '' };
+  }
+  /** "12345 - FULANO" -> { matricula, nome }. Sem hífen, tudo vira nome. */
+  function separarTitulo(t) {
+    var m = /^\s*(\S+)\s+-\s+(.+)$/.exec(String(t || ''));
+    return m ? { matricula: m[1], nome: m[2] } : { matricula: '', nome: String(t || '') };
+  }
+  /** Texto para copiar: 'R$ 1.200,50' -> '1.200,50'. */
+  function valorParaCopia(t) { return String(t || '').replace(/^\s*R\$\s*/, '').trim(); }
+
+  /**
+   * Blocos do servidor (já passados por agrupar) -> { pessoa, veredito, contexto, valor, secoes }.
+   * veredito: { nivel: ok|conferir|parar, titulo, sub, motivos: [{ tipo: 'ok'|'alerta', titulo, texto }] }
+   * valor: { valor, regra, porque, nota } ou null. secoes: [{ nome, chave, aberta, contagem, detalhe, blocos }]
+   */
+  function estruturarFicha(blocos) {
+    var out = { pessoa: { matricula: '', nome: '' }, veredito: null, contexto: [], valor: null, secoes: [] }, atual = null, grupo = '';
+    (blocos || []).forEach(function (b) {
+      var c = b.c || [];
+      if (b.t === 'titulo') { out.pessoa = separarTitulo(c[0]); return; }
+      if (b.t === 'secao') {
+        var nome = String(c[0] || '');
+        if (/^RESPOSTA R/.test(nome)) { grupo = 'resposta'; atual = null; }
+        else if (/^VALOR SUGERIDO/.test(nome)) { grupo = 'valor'; atual = null; out.valor = out.valor || { valor: '', regra: '', porque: '', nota: '' }; }
+        else { grupo = 'secao'; atual = infoSecao(nome); atual.blocos = []; out.secoes.push(atual); }
+        return;
+      }
+      if (grupo === 'resposta' || (grupo === '' && !atual)) {
+        if (b.t === 'veredito') out.veredito = { nivel: c[0], titulo: c[1] || '', sub: c[2] || '', motivos: [] };
+        else if ((b.t === 'ok' || b.t === 'alerta') && out.veredito) out.veredito.motivos.push({ tipo: b.t, titulo: b.t === 'alerta' ? (c[0] || '') : '', texto: b.t === 'alerta' ? (c[1] || '') : (c[0] || '') });
+        else if (b.t === 'kv') out.contexto.push({ rotulo: c[0], texto: c[1] || '' });
+        return;
+      }
+      if (grupo === 'valor') {
+        if (b.t === 'dest') { out.valor.valor = c[0] || ''; out.valor.regra = c[1] || ''; }
+        else if (b.t === 'kv' && /^Por/.test(c[0] || '')) out.valor.porque = c[1] || '';
+        else if (b.t === 'nota') out.valor.nota = c[0] || '';
+        return;
+      }
+      if (atual) atual.blocos.push(b);
+    });
+    return out;
+  }
+
+  /** Tira colunas totalmente vazias (cabeçalho e células): o servidor manda colunas de enfeite para a planilha. */
+  function limparColunas(cab, linhas) {
+    var n = Math.max((cab || []).length, Math.max.apply(null, [0].concat((linhas || []).map(function (l) { return l.length; })))), manter = [];
+    for (var j = 0; j < n; j++) {
+      var cheia = String((cab || [])[j] === undefined ? '' : cab[j]).trim() !== '' || (linhas || []).some(function (l) { return String(l[j] === undefined ? '' : l[j]).trim() !== ''; });
+      if (cheia) manter.push(j);
+    }
+    var pega = function (r) { return manter.map(function (j) { return r[j] === undefined ? '' : r[j]; }); };
+    return { cab: cab ? pega(cab) : null, linhas: (linhas || []).map(pega) };
+  }
+
+  var api = { arquivoParaMatriz: arquivoParaMatriz, lerXlsx: lerXlsx, parseCSV: parseCSV, detectarTipo: detectarTipo, reduzirMovimentacao: reduzirMovimentacao, paraTSV: paraTSV, serialParaTexto: serialParaTexto, norm: norm, parseTSV: parseTSV, achaCabecalho: achaCabecalho, removerCpf: removerCpf, agrupar: agrupar, msgErro: msgErro, urlValida: urlValida, rotuloAlerta: rotuloAlerta, estruturarFicha: estruturarFicha, valorParaCopia: valorParaCopia, separarTitulo: separarTitulo, limparColunas: limparColunas };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else raiz.ConsultaLib = api;
 })(typeof window !== 'undefined' ? window : this);

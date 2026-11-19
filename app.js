@@ -10,63 +10,150 @@
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
   function limpa(n) { while (n.firstChild) n.removeChild(n.firstChild); }
   function aviso(id, tipo, txt) { var n = $(id); limpa(n); if (txt) n.appendChild(el('div', 'msg ' + tipo, txt)); }
+  function ocupado(btn, sim) { btn.disabled = sim; btn.classList.toggle('carregando', sim); }
+  function rolarPara(n) { try { n.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); } catch (e) { /* navegador antigo */ } }
 
   function chamar(corpo) {
     var body = Object.assign({ codigo: estado.codigo, usuario: estado.usuario }, corpo);
     return fetch(estado.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })
-      .catch(function () { return { ok: false, codigo: 'REDE', mensagem: 'Não consegui falar com o sistema. Confira a internet e o endereço.' }; });
+      .catch(function () { return { ok: false, codigo: 'REDE', mensagem: 'Não consegui falar com o sistema. Confira a internet e tente de novo.' }; });
   }
 
   // ----- entrada -----
   function mostrarApp(sim) {
     $('tela-entrada').classList.toggle('oculto', sim); $('tela-app').classList.toggle('oculto', !sim); $('sair').classList.toggle('oculto', !sim);
+    $('quem').classList.toggle('oculto', !sim); $('quem').textContent = sim ? 'Olá, ' + estado.usuario : '';
+    if (sim) $('matricula').focus(); else ($('usuario').value ? $('codigo') : $('usuario')).focus();
   }
   function entrar() {
     var cfgUrl = (window.CONSULTA_CFG && window.CONSULTA_CFG.endpoint) || '';
     estado.url = (cfgUrl || $('url').value || ler('url')).trim();
     estado.usuario = $('usuario').value.trim(); estado.codigo = $('codigo').value.trim();
-    if (!L.urlValida(estado.url)) { $('campo-url').classList.remove('oculto'); return aviso('msg-entrada', 'erro', 'Informe o endereço do sistema (termina em /exec).'); }
-    if (!estado.usuario) return aviso('msg-entrada', 'erro', 'Informe seu nome (fica no registro das consultas).');
-    if (!estado.codigo) return aviso('msg-entrada', 'erro', 'Informe o código de acesso.');
-    aviso('msg-entrada', 'ok', 'Conferindo...');
+    if (!L.urlValida(estado.url)) { $('campo-url').classList.remove('oculto'); $('url').focus(); return aviso('msg-entrada', 'erro', 'Informe o endereço do sistema (termina em /exec). O Arthur te passa.'); }
+    if (!estado.usuario) { $('usuario').focus(); return aviso('msg-entrada', 'erro', 'Informe seu nome. Ele fica no registro das consultas.'); }
+    if (!estado.codigo) { $('codigo').focus(); return aviso('msg-entrada', 'erro', 'Informe o código de acesso.'); }
+    aviso('msg-entrada', 'ok', 'Conferindo o código...'); ocupado($('entrar'), true);
     // consulta de teste sem efeito: matrícula vazia devolve ENTRADA_INVALIDA se o código estiver certo
     chamar({ acao: 'consulta', matricula: '', nome: '' }).then(function (r) {
+      ocupado($('entrar'), false);
       if (r.codigo === 'ENTRADA_INVALIDA' || r.ok) {
         guardar('url', estado.url); guardar('usuario', estado.usuario); guardar('codigo', estado.codigo);
         aviso('msg-entrada', 'ok', ''); mostrarApp(true);
-      } else aviso('msg-entrada', 'erro', L.msgErro(r));
+      } else { aviso('msg-entrada', 'erro', L.msgErro(r)); if (r.codigo === 'ACESSO_NEGADO') $('codigo').select(); }
     });
   }
-  function sair() { guardar('codigo', null); estado.codigo = ''; $('codigo').value = ''; mostrarApp(false); }
+  function sair() {
+    guardar('codigo', null); estado.codigo = ''; $('codigo').value = ''; limparConsulta(); estado.itens = []; desenharLista(); aviso('msg-importar', 'ok', '');
+    mostrarApp(false);
+  }
+  function alternarCodigo() {
+    var c = $('codigo'), ver = c.type === 'password';
+    c.type = ver ? 'text' : 'password'; $('ver-codigo').textContent = ver ? 'Ocultar' : 'Mostrar'; $('ver-codigo').setAttribute('aria-pressed', ver ? 'true' : 'false');
+  }
 
   // ----- consulta -----
-  function desenharFicha(linhas) {
-    var raiz = $('ficha'); limpa(raiz);
-    L.agrupar(linhas).forEach(function (b) {
-      if (b.t === 'titulo') raiz.appendChild(el('h2', '', b.c[0]));
-      else if (b.t === 'secao') raiz.appendChild(el('div', 'secao', b.c[0]));
-      else if (b.t === 'kv') { var d = el('div', 'kv'); d.appendChild(el('b', '', b.c[0])); d.appendChild(el('span', '', b.c[1] || '')); raiz.appendChild(d); }
-      else if (b.t === 'veredito') { var v = el('div', 'veredito v-' + b.c[0], b.c[1]); v.appendChild(el('small', '', b.c[2] || '')); raiz.appendChild(v); }
-      else if (b.t === 'dest') { var x = el('div', 'dest', b.c[0]); x.appendChild(el('small', '', b.c[1] || '')); raiz.appendChild(x); }
-      else if (b.t === 'alerta' || b.t === 'info') { var a = el('div', b.t); a.appendChild(el('b', '', b.c[0] + ': ')); a.appendChild(document.createTextNode(b.c[1] || '')); raiz.appendChild(a); }
-      else if (b.t === 'ok' || b.t === 'nota') raiz.appendChild(el('div', b.t, b.c[0]));
-      else if (b.t === 'tabela') {
-        var t = el('table'), cab = b.cab || [];
-        if (cab.length) { var tr = el('tr'); cab.forEach(function (h) { tr.appendChild(el('th', '', h)); }); t.appendChild(tr); }
-        b.linhas.forEach(function (ln) { var r = el('tr'); ln.forEach(function (v) { r.appendChild(el('td', '', v)); }); t.appendChild(r); });
-        raiz.appendChild(t);
+  function copiar(texto, botao) {
+    function feito() { var t = botao.textContent; botao.textContent = 'Copiado ✓'; setTimeout(function () { botao.textContent = t; }, 1800); }
+    function reserva() {
+      var ta = el('textarea'); ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); feito(); } catch (e) { botao.textContent = 'Copie à mão'; }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(feito, reserva); else reserva();
+  }
+  function tabelaDe(b) {
+    var l = L.limparColunas(b.cab, b.linhas), t = el('table'), box = el('div', 'tabela-rolar');
+    if (l.cab && l.cab.length) { var tr = el('tr'); l.cab.forEach(function (h) { tr.appendChild(el('th', '', h)); }); t.appendChild(tr); }
+    l.linhas.forEach(function (ln) { var r = el('tr'); ln.forEach(function (v) { r.appendChild(el('td', '', v)); }); t.appendChild(r); });
+    box.appendChild(t); return box;
+  }
+  function corpoSecao(sec) {
+    var corpo = el('div', 'sec-corpo'), avisos = null;
+    sec.blocos.forEach(function (b) {
+      var c = b.c || [];
+      if (b.t === 'alerta' || b.t === 'info' || b.t === 'ok') {
+        if (!avisos) { avisos = el('div', 'avisos'); corpo.appendChild(avisos); }
+        var a = el('div', b.t);
+        if (b.t === 'ok') a.textContent = c[0] || '';
+        else { var cod = el('span', 'cod', L.rotuloAlerta(c[0])); if (/^[A-Z][A-Z0-9_]*$/.test(c[0] || '') && L.rotuloAlerta(c[0]) !== c[0]) cod.appendChild(el('small', '', c[0])); a.appendChild(cod); a.appendChild(document.createTextNode(c[1] || '')); }
+        avisos.appendChild(a); return;
       }
+      avisos = null;
+      if (b.t === 'kv') { var d = el('div', 'kv'); d.appendChild(el('b', '', c[0])); d.appendChild(el('span', '', c[1] || '')); corpo.appendChild(d); }
+      else if (b.t === 'nota') corpo.appendChild(el('p', 'nota', c[0]));
+      else if (b.t === 'tabela') corpo.appendChild(tabelaDe(b));
     });
+    return corpo;
+  }
+  var SELO = { ok: 'Resposta rápida · tudo certo', conferir: 'Resposta rápida · atenção', parar: 'Resposta rápida · pare' };
+  function desenharFicha(linhas) {
+    var raiz = $('ficha'), f = L.estruturarFicha(L.agrupar(linhas)); limpa(raiz);
+    var p = el('div', 'pessoa'); p.appendChild(el('h2', '', f.pessoa.nome)); if (f.pessoa.matricula) p.appendChild(el('span', 'mat', 'Matrícula ' + f.pessoa.matricula)); raiz.appendChild(p);
+    if (f.contexto.length) { var cx = el('div', 'contexto'); f.contexto.forEach(function (k) { cx.appendChild(el('span', '', k.rotulo + ': ' + k.texto)); }); raiz.appendChild(cx); }
+    var v = f.veredito;
+    if (v) {
+      var caixa = el('div', 'resposta ' + v.nivel);
+      caixa.appendChild(el('div', 'selo', SELO[v.nivel] || 'Resposta'));
+      caixa.appendChild(el('div', 'chamada', v.titulo)); if (v.sub) caixa.appendChild(el('div', 'chamada-sub', v.sub));
+      if (f.valor && f.valor.valor) {
+        var vb = el('div', 'valor-box');
+        vb.appendChild(el('div', 'rot', v.nivel === 'parar' ? 'Valor calculado (não decida por ele ainda)' : 'Valor sugerido'));
+        vb.appendChild(el('div', 'num', f.valor.valor)); if (f.valor.regra) vb.appendChild(el('div', 'regra', f.valor.regra));
+        var cp = el('button', 'bt bt-s', 'Copiar valor'); cp.type = 'button'; cp.addEventListener('click', function () { copiar(L.valorParaCopia(f.valor.valor), cp); }); vb.appendChild(cp);
+        caixa.appendChild(vb);
+        if (f.valor.porque) { var pq = el('p', 'porque'); pq.appendChild(el('b', '', 'Por quê: ')); pq.appendChild(document.createTextNode(f.valor.porque)); caixa.appendChild(pq); }
+        if (f.valor.nota) caixa.appendChild(el('p', 'nota-fina', f.valor.nota));
+      }
+      if (v.motivos.length) {
+        var ul = el('ul', 'motivos');
+        v.motivos.forEach(function (m) { var li = el('li'); li.appendChild(el('span', 'ic ' + m.tipo, m.tipo === 'ok' ? '✓' : '!')); var t = el('span'); if (m.titulo) t.appendChild(el('b', '', m.titulo + ': ')); t.appendChild(document.createTextNode(m.texto)); li.appendChild(t); ul.appendChild(li); });
+        caixa.appendChild(ul);
+      }
+      raiz.appendChild(caixa);
+    }
+    // abertas primeiro (atenção e ciclo atual); o resto segue na ordem do servidor
+    f.secoes.filter(function (s) { return s.aberta; }).concat(f.secoes.filter(function (s) { return !s.aberta; })).forEach(function (s) {
+      var d = el('details', 'sec'), sm = el('summary'); if (s.aberta) d.open = true;
+      sm.appendChild(el('span', '', s.nome));
+      if (s.contagem !== null) sm.appendChild(el('span', 'badge' + (s.contagem === 0 ? ' zero' : ''), String(s.contagem)));
+      if (s.detalhe) sm.appendChild(el('span', 'det', s.detalhe));
+      d.appendChild(sm); d.appendChild(corpoSecao(s)); raiz.appendChild(d);
+    });
+    var fim = el('div', 'fim-ficha'), nova = el('button', 'bt bt-s', 'Consultar outra matrícula'); nova.type = 'button'; nova.addEventListener('click', limparConsulta); fim.appendChild(nova); raiz.appendChild(fim);
+  }
+  function esqueleto() {
+    var raiz = $('ficha'); limpa(raiz); raiz.appendChild(el('div', 'esq g')); raiz.appendChild(el('div', 'esq')); raiz.appendChild(el('div', 'esq'));
+  }
+  function limparConsulta() {
+    ['matricula', 'nome', 'pvalor', 'pkm'].forEach(function (id) { $(id).value = ''; $(id).classList.remove('invalido'); });
+    limpa($('ficha')); aviso('msg-consulta', 'ok', ''); $('erro-busca').textContent = ''; $('vazio').classList.remove('oculto'); $('limpar').classList.add('oculto');
+    if (!$('tela-app').classList.contains('oculto')) { $('matricula').focus(); try { window.scrollTo(0, 0); } catch (e) { /* ok */ } }
+  }
+  var NUM = /^\d+([.,]\d+)?$/;
+  function validarBusca() {
+    var mat = $('matricula').value.trim(), nome = $('nome').value.trim(), pv = $('pvalor').value.trim(), pk = $('pkm').value.trim(), msg = '', foco = null;
+    ['matricula', 'nome', 'pvalor', 'pkm'].forEach(function (id) { $(id).classList.remove('invalido'); });
+    if (!mat && !nome) { msg = 'Digite a matrícula ou parte do nome para consultar.'; foco = $('matricula'); $('matricula').classList.add('invalido'); $('nome').classList.add('invalido'); }
+    else if (mat && !/^\d+$/.test(mat)) { msg = 'A matrícula tem só números. Se não sabe, use o campo de nome.'; foco = $('matricula'); $('matricula').classList.add('invalido'); }
+    else if (pv && !NUM.test(pv)) { msg = 'No valor pedido, digite só números (ex.: 200 ou 200,50).'; foco = $('pvalor'); $('pvalor').classList.add('invalido'); }
+    else if (pk && !NUM.test(pk)) { msg = 'No km pedido, digite só números (ex.: 350).'; foco = $('pkm'); $('pkm').classList.add('invalido'); }
+    $('erro-busca').textContent = msg; if (foco) foco.focus();
+    return !msg;
   }
   function consultar() {
+    if (!validarBusca()) return;
     var pv = $('pvalor').value.trim(), pk = $('pkm').value.trim();
-    $('consultar').disabled = true; aviso('msg-consulta', 'ok', 'Consultando...'); limpa($('ficha'));
+    ocupado($('consultar'), true); aviso('msg-consulta', 'ok', 'Consultando...'); $('vazio').classList.add('oculto'); esqueleto();
     chamar({ acao: 'consulta', matricula: $('matricula').value.trim(), nome: $('nome').value.trim(), pedidoValor: pv, pedidoKm: pk }).then(function (r) {
-      $('consultar').disabled = false;
-      if (!r.ok) return aviso('msg-consulta', 'erro', L.msgErro(r));
+      ocupado($('consultar'), false);
+      if (!r.ok) {
+        limpa($('ficha')); $('vazio').classList.remove('oculto');
+        if (r.codigo === 'ACESSO_NEGADO') { sair(); return aviso('msg-entrada', 'erro', 'Seu código não vale mais. Entre de novo com o código atual.'); }
+        return aviso('msg-consulta', 'erro', L.msgErro(r));
+      }
       aviso('msg-consulta', 'ok', 'Consulta feita. Extrato Alelo até ' + r.resumo.corte.split('-').reverse().join('/') + '.');
-      desenharFicha(r.linhas);
+      desenharFicha(r.linhas); $('limpar').classList.remove('oculto'); rolarPara($('ficha'));
     });
   }
 
@@ -84,12 +171,12 @@
     var tipo = L.detectarTipo(matriz), it = { nome: nome, tipo: tipo, estado: 'lido', texto: '', linhas: [], resumo: null };
     if (tipo === 'alelo') {
       var p = L.removerCpf(matriz); it.matriz = p.matriz; it.acao = 'importar';
-      it.info = (matriz.length - 1) + ' linhas lidas' + (p.removidas ? ' · CPF removido aqui, no seu computador' : '');
+      it.info = (matriz.length - 1) + ((matriz.length - 1) === 1 ? ' linha lida' : ' linhas lidas') + (p.removidas ? ' · CPF removido aqui, no seu computador' : '');
     } else if (tipo === 'movimentacao') {
       var red = L.reduzirMovimentacao(matriz);
       if (!red) { it.tipo = null; it.estado = 'erro'; it.texto = 'Não achei as colunas da Movimentação (matrícula, status, placa).'; return it; }
       it.matriz = red; it.acao = 'pessoas';
-      it.info = (red.length - 1) + ' pessoas lidas · só matrícula, nome, status, cargo, regional, coordenador, estado, deslocamento e placa serão enviados';
+      it.info = (red.length - 1) + ((red.length - 1) === 1 ? ' pessoa lida' : ' pessoas lidas') + ' · só matrícula, nome, status, cargo, regional, coordenador, estado, deslocamento e placa serão enviados';
     } else { it.estado = 'erro'; it.texto = 'Não reconheci este arquivo. Suba o extrato do Alelo ou a Movimentação, do jeito que baixou.'; }
     return it;
   }
@@ -103,6 +190,7 @@
     }).then(function (r) { return montarItem(f.name, r.matriz || []); })
       .catch(function (e) { return { nome: f.name, tipo: null, estado: 'erro', texto: (e && e.message) || 'Não consegui ler este arquivo.' }; });
   }
+  function passo(id, estadoPasso) { var p = $(id); p.classList.toggle('feito', estadoPasso === 'feito'); p.classList.toggle('parado', estadoPasso === 'parado'); }
   function desenharLista() {
     var raiz = $('lista-arquivos'); limpa(raiz);
     estado.itens.forEach(function (it) {
@@ -110,13 +198,24 @@
       c.appendChild(el('b', '', (it.tipo ? ROTULO[it.tipo] : 'Arquivo não reconhecido') + ': ' + it.nome));
       if (it.info) c.appendChild(el('small', '', it.info));
       if (it.texto) c.appendChild(el('small', '', it.texto));
-      if (it.resumo) { var r = el('div', 'res'); it.resumo.forEach(function (p) { var s = el('div'); s.appendChild(el('span', 'num', p[0] + ' ')); s.appendChild(document.createTextNode(p[1])); r.appendChild(s); }); c.appendChild(r); }
+      if (it.resumo) { var r = el('div', 'res'); it.resumo.forEach(function (p) { var s = el('div'); s.appendChild(el('span', 'n', p[0])); s.appendChild(document.createTextNode(p[1])); r.appendChild(s); }); c.appendChild(r); }
       if (it.linhas.length) { var u = el('ul'); it.linhas.forEach(function (t) { u.appendChild(el('li', '', t)); }); c.appendChild(u); }
       raiz.appendChild(c);
     });
     var validos = estado.itens.filter(function (i) { return i.tipo; });
-    $('conferir').disabled = !validos.length || validos.every(function (i) { return i.estado === 'gravado'; });
-    $('gravar').disabled = !validos.length || !validos.some(function (i) { return i.estado === 'conferido' && i.temNovo; });
+    var todosGravados = validos.length && validos.every(function (i) { return i.estado === 'gravado'; });
+    // sem pendência = cada arquivo já foi gravado ou foi conferido e não tem nada novo (nada mais a fazer)
+    var semPendencia = validos.length && validos.every(function (i) { return i.estado === 'gravado' || (i.estado === 'conferido' && !i.temNovo); });
+    var algumGravado = validos.some(function (i) { return i.estado === 'gravado'; });
+    var algumConferido = validos.some(function (i) { return i.estado === 'conferido' || i.estado === 'gravado'; });
+    var podeGravar = validos.some(function (i) { return i.estado === 'conferido' && i.temNovo; });
+    $('conferir').disabled = !validos.length || todosGravados;
+    $('gravar').disabled = !podeGravar;
+    passo('passo-1', validos.length ? 'feito' : '');
+    passo('passo-2', algumConferido ? 'feito' : (validos.length ? '' : 'parado'));
+    passo('passo-3', semPendencia ? 'feito' : (podeGravar ? '' : 'parado'));
+    $('dica-gravar').textContent = semPendencia ? (algumGravado ? 'Tudo gravado.' : 'Nada novo para gravar: tudo já estava na planilha.') : podeGravar ? 'Tudo certo: pode gravar.'
+      : !validos.length ? 'Escolha um arquivo e clique em Conferir primeiro.' : 'Clique em Conferir primeiro.';
   }
   function trocarItens(itens) { estado.itens = itens; aviso('msg-importar', 'ok', ''); desenharLista(); }
 
@@ -151,19 +250,21 @@
   }
   function conferir() {
     var alvo = estado.itens.filter(function (i) { return i.tipo && i.estado !== 'gravado'; });
-    $('conferir').disabled = true; $('gravar').disabled = true; aviso('msg-importar', 'ok', 'Conferindo...');
-    emSequencia(alvo, true).then(function () { aviso('msg-importar', 'ok', 'Conferido. Nada foi gravado ainda.'); desenharLista(); });
+    ocupado($('conferir'), true); $('gravar').disabled = true; aviso('msg-importar', 'ok', 'Conferindo... nada é gravado nesta etapa.');
+    emSequencia(alvo, true).then(function () { ocupado($('conferir'), false); aviso('msg-importar', 'ok', 'Conferido. Nada foi gravado ainda.'); desenharLista(); });
   }
   function gravar() {
     var alvo = estado.itens.filter(function (i) { return i.estado === 'conferido' && i.temNovo; });
-    $('conferir').disabled = true; $('gravar').disabled = true; aviso('msg-importar', 'ok', 'Gravando...');
+    $('conferir').disabled = true; ocupado($('gravar'), true); aviso('msg-importar', 'ok', 'Gravando...');
     emSequencia(alvo, false).then(function () {
+      ocupado($('gravar'), false);
       var erros = estado.itens.some(function (i) { return i.estado === 'erro'; });
-      aviso('msg-importar', erros ? 'erro' : 'ok', erros ? 'Algum arquivo deu erro. Leia o aviso no cartão dele.' : 'Pronto. Tudo gravado.'); desenharLista();
+      aviso('msg-importar', erros ? 'erro' : 'sucesso', erros ? 'Algum arquivo deu erro. Leia o aviso no cartão dele.' : 'Pronto. Tudo gravado.'); desenharLista();
     });
   }
   function aoEscolherArquivos() {
     var fs = Array.prototype.slice.call($('arquivos').files || []);
+    $('arquivos').value = '';   // sem isso, escolher o mesmo arquivo de novo não dispara nada no Chrome
     if (!fs.length) return trocarItens([]);
     aviso('msg-importar', 'ok', 'Lendo os arquivos...');
     Promise.all(fs.map(lerArquivo)).then(trocarItens);
@@ -173,23 +274,35 @@
     if (m.length < 2) return aviso('msg-importar', 'erro', 'Cole o extrato com o cabeçalho.');
     trocarItens(estado.itens.filter(function (i) { return i.nome !== 'texto colado'; }).concat([montarItem('texto colado', m)]));
   }
+  function configurarZona() {
+    var z = $('zona');
+    ['dragenter', 'dragover'].forEach(function (ev) { z.addEventListener(ev, function (e) { e.preventDefault(); z.classList.add('sobre'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { z.addEventListener(ev, function (e) { e.preventDefault(); z.classList.remove('sobre'); }); });
+    z.addEventListener('drop', function (e) {
+      var fs = e.dataTransfer && e.dataTransfer.files;
+      if (!fs || !fs.length) return;
+      try { $('arquivos').files = fs; aoEscolherArquivos(); } catch (er) { aviso('msg-importar', 'erro', 'Seu navegador não aceitou arrastar. Clique na área para escolher os arquivos.'); }
+    });
+  }
 
   function aba(qual) {
     $('painel-consulta').classList.toggle('oculto', qual !== 'consulta'); $('painel-importar').classList.toggle('oculto', qual !== 'importar');
     $('aba-consulta').classList.toggle('ativa', qual === 'consulta'); $('aba-importar').classList.toggle('ativa', qual === 'importar');
+    $('aba-consulta').setAttribute('aria-selected', qual === 'consulta' ? 'true' : 'false'); $('aba-importar').setAttribute('aria-selected', qual === 'importar' ? 'true' : 'false');
   }
 
   function iniciar() {
-    $('entrar').addEventListener('click', entrar); $('sair').addEventListener('click', sair);
-    $('consultar').addEventListener('click', consultar); $('conferir').addEventListener('click', conferir); $('gravar').addEventListener('click', gravar);
-    $('arquivos').addEventListener('change', aoEscolherArquivos); $('usar-texto').addEventListener('click', usarTexto);
+    $('entrar').addEventListener('click', entrar); $('sair').addEventListener('click', sair); $('ver-codigo').addEventListener('click', alternarCodigo);
+    $('consultar').addEventListener('click', consultar); $('limpar').addEventListener('click', limparConsulta); $('conferir').addEventListener('click', conferir); $('gravar').addEventListener('click', gravar);
+    $('arquivos').addEventListener('change', aoEscolherArquivos); $('usar-texto').addEventListener('click', usarTexto); configurarZona();
     $('aba-consulta').addEventListener('click', function () { aba('consulta'); }); $('aba-importar').addEventListener('click', function () { aba('importar'); });
     ['matricula', 'nome', 'pvalor', 'pkm'].forEach(function (id) { $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') consultar(); }); });
-    $('codigo').addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
+    ['usuario', 'codigo', 'url'].forEach(function (id) { $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); }); });
     var cfgUrl = (window.CONSULTA_CFG && window.CONSULTA_CFG.endpoint) || '';
     if (!cfgUrl && !ler('url')) $('campo-url').classList.remove('oculto');
     $('url').value = ler('url'); $('usuario').value = ler('usuario'); $('codigo').value = ler('codigo');
-    if (ler('url') || cfgUrl) { if ($('usuario').value && $('codigo').value) entrar(); }
+    desenharLista();
+    if (ler('url') || cfgUrl) { if ($('usuario').value && $('codigo').value) entrar(); else ($('usuario').value ? $('codigo') : $('usuario')).focus(); }
   }
   document.addEventListener('DOMContentLoaded', iniciar);
 })();
