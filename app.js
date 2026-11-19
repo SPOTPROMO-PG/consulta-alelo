@@ -86,74 +86,117 @@
     });
     return corpo;
   }
-  var SELO = { ok: 'Resposta rápida · tudo certo', conferir: 'Resposta rápida · atenção', parar: 'Resposta rápida · pare' };
-  function desenharFicha(linhas) {
-    var raiz = $('ficha'), f = L.estruturarFicha(L.agrupar(linhas)); limpa(raiz);
-    var p = el('div', 'pessoa'); p.appendChild(el('h2', '', f.pessoa.nome)); if (f.pessoa.matricula) p.appendChild(el('span', 'mat', 'Matrícula ' + f.pessoa.matricula)); raiz.appendChild(p);
-    if (f.contexto.length) { var cx = el('div', 'contexto'); f.contexto.forEach(function (k) { cx.appendChild(el('span', '', k.rotulo + ': ' + k.texto)); }); raiz.appendChild(cx); }
-    var v = f.veredito;
-    if (v) {
-      var caixa = el('div', 'resposta ' + v.nivel);
-      caixa.appendChild(el('div', 'selo', SELO[v.nivel] || 'Resposta'));
-      caixa.appendChild(el('div', 'chamada', v.titulo)); if (v.sub) caixa.appendChild(el('div', 'chamada-sub', v.sub));
-      if (f.valor && f.valor.valor) {
-        var vb = el('div', 'valor-box');
-        vb.appendChild(el('div', 'rot', v.nivel === 'parar' ? 'Valor calculado (não decida por ele ainda)' : 'Valor sugerido'));
-        vb.appendChild(el('div', 'num', f.valor.valor)); if (f.valor.regra) vb.appendChild(el('div', 'regra', f.valor.regra));
-        var cp = el('button', 'bt bt-s', 'Copiar valor'); cp.type = 'button'; cp.addEventListener('click', function () { copiar(L.valorParaCopia(f.valor.valor), cp); }); vb.appendChild(cp);
-        caixa.appendChild(vb);
-        if (f.valor.porque) { var pq = el('p', 'porque'); pq.appendChild(el('b', '', 'Por quê: ')); pq.appendChild(document.createTextNode(f.valor.porque)); caixa.appendChild(pq); }
-        if (f.valor.nota) caixa.appendChild(el('p', 'nota-fina', f.valor.nota));
-      }
-      if (v.motivos.length) {
-        var ul = el('ul', 'motivos');
-        v.motivos.forEach(function (m) { var li = el('li'); li.appendChild(el('span', 'ic ' + m.tipo, m.tipo === 'ok' ? '✓' : '!')); var t = el('span'); if (m.titulo) t.appendChild(el('b', '', m.titulo + ': ')); t.appendChild(document.createTextNode(m.texto)); li.appendChild(t); ul.appendChild(li); });
-        caixa.appendChild(ul);
-      }
-      raiz.appendChild(caixa);
+  var FAIXA = { ok: ['✓', 'Pode enviar'], conferir: ['!', 'Confira antes de enviar'], parar: ['✕', 'Não decida por esta ficha'] };
+  var ORDEM = ['atencao', 'abastecimentos', 'gasto', 'mobi7', 'kmpago', 'ciclo', 'outra', 'sobre'];
+
+  function numero(rot, valor, peq, opc) {
+    var d = el('div', 'numero' + (opc && opc.alerta ? ' alerta' : ''));
+    d.appendChild(el('div', 'rot', rot)); d.appendChild(el('div', 'num' + (opc && opc.fraco ? ' fraco' : ''), valor)); if (peq) d.appendChild(el('div', 'peq', peq));
+    return d;
+  }
+  function numerosDe(q) {
+    var raiz = el('div', 'numeros'), km = q.km;
+    raiz.appendChild(q.semFormulario ? numero('Limite do ciclo', 'Sem formulário', 'avise a Renata', { alerta: true, fraco: true })
+      : numero('Limite do ciclo', q.limite || '—', 'formulário deste ciclo', q.limite ? null : { fraco: true }));
+    raiz.appendChild(q.gasto && q.gasto.valor ? numero('Gasto no ciclo', q.gasto.valor, q.gasto.ate ? 'até ' + q.gasto.ate : '') : numero('Gasto no ciclo', '—', 'sem dado', { fraco: true }));
+    raiz.appendChild(q.media ? numero('Média por ciclo', q.media.valor, q.media.n === 1 ? 'último ciclo fechado' : 'últimos ' + q.media.n + ' ciclos fechados') : numero('Média por ciclo', '—', 'sem histórico', { fraco: true }));
+    raiz.appendChild(km.estado === 'ok' ? numero('KM rodado', km.valor + ' km', 'Mobi7, ciclo atual')
+      : km.estado === 'sem-carro' ? numero('KM rodado', 'Sem Mobi7', 'carro não vinculado', { fraco: true })
+      : km.estado === 'indisponivel' ? numero('KM rodado', 'Sem dados', 'Mobi7 indisponível', { fraco: true })
+      : numero('KM rodado', '—', 'Mobi7 não consultado', { fraco: true }));
+    return raiz;
+  }
+  function desenharFicha(linhas, corte, pedido) {
+    var raiz = $('ficha'), f = L.estruturarFicha(L.agrupar(linhas)), q = L.resumoRapido(f), v = f.veredito || { nivel: 'conferir', titulo: '', sub: '', motivos: [] };
+    limpa(raiz);
+    var nivel = FAIXA[v.nivel] ? v.nivel : 'conferir', velho = v.motivos.some(function (m) { return /extrato do Alelo/i.test(m.texto); });
+
+    var p = el('div', 'pessoa'); p.appendChild(el('span', 'nome', f.pessoa.nome)); if (f.pessoa.matricula) p.appendChild(el('span', 'mat', f.pessoa.matricula));
+    var nova = el('button', 'bt bt-s nova', 'Nova consulta'); nova.type = 'button'; nova.addEventListener('click', limparConsulta); p.appendChild(nova); raiz.appendChild(p);
+    raiz.appendChild(el('div', 'extrato-ate' + (velho ? ' velho' : ''), 'Extrato do Alelo até ' + fmtData(corte) + (velho ? ' · desatualizado' : '')));
+
+    // ----- decisão: faixa de cor + o que pediu + o que sugerimos
+    var card = el('div', 'decisao nivel-' + nivel), fx = el('div', 'faixa');
+    fx.appendChild(el('span', 'ic', FAIXA[nivel][0])); fx.appendChild(el('span', '', FAIXA[nivel][1])); card.appendChild(fx);
+    var vals = el('div', 'valores');
+    if (pedido) { var pd = el('div', 'valor'); pd.appendChild(el('div', 'rot', 'Pediu')); pd.appendChild(el('div', 'num', pedido)); vals.appendChild(pd); }
+    if (f.valor && f.valor.valor) {
+      var sg = el('div', 'valor grande'); sg.appendChild(el('div', 'rot', nivel === 'parar' ? 'Valor calculado' : 'Valor sugerido')); sg.appendChild(el('div', 'num', f.valor.valor)); vals.appendChild(sg);
+      if (nivel !== 'parar') { var cp = el('button', 'bt bt-s', 'Copiar valor'); cp.type = 'button'; cp.addEventListener('click', function () { copiar(L.valorParaCopia(f.valor.valor), cp); }); vals.appendChild(cp); }
     }
-    // abertas primeiro (atenção e ciclo atual); o resto segue na ordem do servidor
-    f.secoes.filter(function (s) { return s.aberta; }).concat(f.secoes.filter(function (s) { return !s.aberta; })).forEach(function (s) {
-      var d = el('details', 'sec'), sm = el('summary'); if (s.aberta) d.open = true;
-      sm.appendChild(el('span', '', s.nome));
-      if (s.contagem !== null) sm.appendChild(el('span', 'badge' + (s.contagem === 0 ? ' zero' : ''), String(s.contagem)));
-      if (s.detalhe) sm.appendChild(el('span', 'det', s.detalhe));
-      d.appendChild(sm); d.appendChild(corpoSecao(s)); raiz.appendChild(d);
-    });
-    var fim = el('div', 'fim-ficha'), nova = el('button', 'bt bt-s', 'Consultar outra matrícula'); nova.type = 'button'; nova.addEventListener('click', limparConsulta); fim.appendChild(nova); raiz.appendChild(fim);
+    card.appendChild(vals);
+    if (f.valor && f.valor.porque) card.appendChild(el('p', 'porque', f.valor.porque));
+
+    var itens = v.motivos.filter(function (m) { return m.tipo === 'alerta' && !/^Há \d+ alerta/.test(m.texto); }).slice(0, 3), detAtencao = null;
+    if (nivel !== 'ok' && (itens.length || q.alertas)) {
+      var ant = el('div', 'antes'); ant.appendChild(el('h3', '', nivel === 'parar' ? 'Resolva antes de decidir' : 'Antes de enviar'));
+      var ul = el('ul'); itens.forEach(function (m) { var li = el('li'); li.appendChild(el('span', 'pt')); li.appendChild(el('span', '', m.texto)); ul.appendChild(li); }); ant.appendChild(ul);
+      if (q.alertas) {
+        var ver = el('button', 'ver', q.alertas === 1 ? 'Ver o alerta desta matrícula' : 'Ver os ' + q.alertas + ' alertas'); ver.type = 'button';
+        ver.addEventListener('click', function () { if (detAtencao) { detAtencao.open = true; rolarPara(detAtencao); } }); ant.appendChild(ver);
+      }
+      card.appendChild(ant);
+    }
+    raiz.appendChild(card);
+
+    // ----- 4 números
+    raiz.appendChild(numerosDe(q));
+
+    // ----- histórico: tudo fechado
+    var secs = f.secoes.slice();
+    var sobre = f.contexto.map(function (k) { return { t: 'kv', c: [k.rotulo, k.texto] }; });
+    if (f.valor && f.valor.nota) sobre.push({ t: 'nota', c: [f.valor.nota] });
+    if (sobre.length) secs.push({ nome: 'Sobre a pessoa e o valor', chave: 'sobre', aberta: false, contagem: null, detalhe: '', blocos: sobre });
+    secs = secs.filter(function (s) { return s.blocos.length; }).sort(function (a, b) { return ORDEM.indexOf(a.chave) - ORDEM.indexOf(b.chave); });
+    if (secs.length) {
+      raiz.appendChild(el('h3', 'hist-titulo', 'Histórico e detalhes')); raiz.appendChild(el('p', 'hist-sub', 'Abra só se precisar conferir.'));
+      secs.forEach(function (s) {
+        var d = el('details', 'sec'), sm = el('summary'); sm.appendChild(el('span', '', s.nome));
+        if (s.chave === 'atencao' && q.alertas) sm.appendChild(el('span', 'badge', String(q.alertas)));
+        d.appendChild(sm); d.appendChild(corpoSecao(s)); raiz.appendChild(d);
+        if (s.chave === 'atencao') detAtencao = d;
+      });
+    }
   }
   function esqueleto() {
     var raiz = $('ficha'); limpa(raiz); raiz.appendChild(el('div', 'esq g')); raiz.appendChild(el('div', 'esq')); raiz.appendChild(el('div', 'esq'));
   }
   function limparConsulta() {
     ['matricula', 'nome', 'pvalor', 'pkm'].forEach(function (id) { $(id).value = ''; $(id).classList.remove('invalido'); });
-    limpa($('ficha')); aviso('msg-consulta', 'ok', ''); $('erro-busca').textContent = ''; $('vazio').classList.remove('oculto'); $('limpar').classList.add('oculto');
-    if (!$('tela-app').classList.contains('oculto')) { $('matricula').focus(); try { window.scrollTo(0, 0); } catch (e) { /* ok */ } }
+    limpa($('ficha')); aviso('msg-consulta', 'ok', ''); $('erro-busca').textContent = ''; $('busca').classList.remove('oculto');
+    if (!$('tela-app').classList.contains('oculto')) { try { window.scrollTo(0, 0); } catch (e) { /* ok */ } $('matricula').focus(); }
   }
   var NUM = /^\d+([.,]\d+)?$/;
   function validarBusca() {
     var mat = $('matricula').value.trim(), nome = $('nome').value.trim(), pv = $('pvalor').value.trim(), pk = $('pkm').value.trim(), msg = '', foco = null;
     ['matricula', 'nome', 'pvalor', 'pkm'].forEach(function (id) { $(id).classList.remove('invalido'); });
-    if (!mat && !nome) { msg = 'Digite a matrícula ou parte do nome para consultar.'; foco = $('matricula'); $('matricula').classList.add('invalido'); $('nome').classList.add('invalido'); }
-    else if (mat && !/^\d+$/.test(mat)) { msg = 'A matrícula tem só números. Se não sabe, use o campo de nome.'; foco = $('matricula'); $('matricula').classList.add('invalido'); }
-    else if (pv && !NUM.test(pv)) { msg = 'No valor pedido, digite só números (ex.: 200 ou 200,50).'; foco = $('pvalor'); $('pvalor').classList.add('invalido'); }
-    else if (pk && !NUM.test(pk)) { msg = 'No km pedido, digite só números (ex.: 350).'; foco = $('pkm'); $('pkm').classList.add('invalido'); }
+    if (!mat && !nome) { msg = 'Digite a matrícula para consultar.'; foco = $('matricula'); $('matricula').classList.add('invalido'); }
+    else if (mat && !/^\d+$/.test(mat)) { msg = 'A matrícula tem só números. Se não sabe, abra "Não sei a matrícula" e use o nome.'; foco = $('matricula'); $('matricula').classList.add('invalido'); }
+    else if (pv && !NUM.test(pv)) { msg = 'Em "Pediu quanto?", digite só números (ex.: 200 ou 200,50).'; foco = $('pvalor'); $('pvalor').classList.add('invalido'); }
+    else if (pk && !NUM.test(pk)) { msg = 'Em km, digite só números (ex.: 350).'; foco = $('pkm'); $('pkm').classList.add('invalido'); }
+    if (foco === $('pkm')) $('pkm').closest('details').open = true;   // o campo de km fica dentro de "Mais opções"
     $('erro-busca').textContent = msg; if (foco) foco.focus();
     return !msg;
   }
+  function textoPedido(pv, pk) {
+    var t = [];
+    if (pv && !isNaN(L.parseBR(pv))) t.push(L.fmtRS(L.parseBR(pv)));
+    if (pk) t.push(pk.replace('.', ',') + ' km');
+    return t.join(' · ');
+  }
   function consultar() {
     if (!validarBusca()) return;
-    var pv = $('pvalor').value.trim(), pk = $('pkm').value.trim();
-    ocupado($('consultar'), true); aviso('msg-consulta', 'ok', 'Consultando...'); $('vazio').classList.add('oculto'); esqueleto();
+    var pv = $('pvalor').value.trim(), pk = $('pkm').value.trim(), pedido = textoPedido(pv, pk);
+    ocupado($('consultar'), true); aviso('msg-consulta', 'ok', 'Consultando...'); esqueleto();
     chamar({ acao: 'consulta', matricula: $('matricula').value.trim(), nome: $('nome').value.trim(), pedidoValor: pv, pedidoKm: pk }).then(function (r) {
       ocupado($('consultar'), false);
       if (!r.ok) {
-        limpa($('ficha')); $('vazio').classList.remove('oculto');
+        limpa($('ficha'));
         if (r.codigo === 'ACESSO_NEGADO') { sair(); return aviso('msg-entrada', 'erro', 'Seu código não vale mais. Entre de novo com o código atual.'); }
         return aviso('msg-consulta', 'erro', L.msgErro(r));
       }
-      aviso('msg-consulta', 'ok', 'Consulta feita. Extrato Alelo até ' + r.resumo.corte.split('-').reverse().join('/') + '.');
-      desenharFicha(r.linhas); $('limpar').classList.remove('oculto'); rolarPara($('ficha'));
+      aviso('msg-consulta', 'ok', ''); $('busca').classList.add('oculto');
+      desenharFicha(r.linhas, r.resumo.corte, pedido); try { window.scrollTo(0, 0); } catch (e) { /* ok */ }
     });
   }
 
@@ -293,7 +336,7 @@
 
   function iniciar() {
     $('entrar').addEventListener('click', entrar); $('sair').addEventListener('click', sair); $('ver-codigo').addEventListener('click', alternarCodigo);
-    $('consultar').addEventListener('click', consultar); $('limpar').addEventListener('click', limparConsulta); $('conferir').addEventListener('click', conferir); $('gravar').addEventListener('click', gravar);
+    $('consultar').addEventListener('click', consultar); $('conferir').addEventListener('click', conferir); $('gravar').addEventListener('click', gravar);
     $('arquivos').addEventListener('change', aoEscolherArquivos); $('usar-texto').addEventListener('click', usarTexto); configurarZona();
     $('aba-consulta').addEventListener('click', function () { aba('consulta'); }); $('aba-importar').addEventListener('click', function () { aba('importar'); });
     ['matricula', 'nome', 'pvalor', 'pkm'].forEach(function (id) { $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') consultar(); }); });

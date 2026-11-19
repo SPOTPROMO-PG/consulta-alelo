@@ -278,11 +278,11 @@
   }
 
   var SECOES = [   // início do título que o servidor manda -> nome na tela
-    [/^O QUE PEDE ATEN/, 'O que pede atenção', 'atencao', true],
-    [/^CICLO ATUAL/, 'Ciclo atual', 'ciclo', true],
+    [/^O QUE PEDE ATEN/, 'Alertas', 'atencao', false],
+    [/^CICLO ATUAL/, 'Contas do ciclo atual', 'ciclo', false],
     [/^KM DO CARRO/, 'KM do carro (Mobi7)', 'mobi7', false],
     [/^KM PAGO/, 'KM pago nos ciclos', 'kmpago', false],
-    [/^GASTO ALELO/, 'Gasto no Alelo por ciclo', 'gasto', false],
+    [/^GASTO ALELO/, 'Gasto por ciclo', 'gasto', false],
     [/^.LTIMOS ABASTECIMENTOS/, 'Últimos abastecimentos', 'abastecimentos', false]
   ];
   function casoFrase(t) { t = String(t || '').toLowerCase(); return t.charAt(0).toUpperCase() + t.slice(1); }
@@ -349,6 +349,57 @@
     return { cab: cab ? pega(cab) : null, linhas: (linhas || []).map(pega) };
   }
 
-  var api = { arquivoParaMatriz: arquivoParaMatriz, lerXlsx: lerXlsx, parseCSV: parseCSV, detectarTipo: detectarTipo, reduzirMovimentacao: reduzirMovimentacao, paraTSV: paraTSV, serialParaTexto: serialParaTexto, norm: norm, parseTSV: parseTSV, achaCabecalho: achaCabecalho, removerCpf: removerCpf, agrupar: agrupar, msgErro: msgErro, urlValida: urlValida, rotuloAlerta: rotuloAlerta, estruturarFicha: estruturarFicha, valorParaCopia: valorParaCopia, separarTitulo: separarTitulo, limparColunas: limparColunas };
+  // ---------------------------------------------------------------------------------------------
+  // Resumo rápido: os poucos números que o Felipe precisa para decidir, tirados da mesma ficha do servidor.
+  // ---------------------------------------------------------------------------------------------
+  function parseBR(t) {
+    var c = String(t === null || t === undefined ? '' : t).replace(/[^\d,.-]/g, '');
+    if (!/\d/.test(c)) return NaN;
+    var n = Number(c.replace(/\./g, '').replace(',', '.'));
+    return isFinite(n) ? n : NaN;
+  }
+  /** 1234.5 -> 'R$ 1.234,50'. */
+  function fmtRS(n) {
+    var p = Math.abs(Number(n)).toFixed(2).split('.');
+    return (n < 0 ? '-' : '') + 'R$ ' + p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + p[1];
+  }
+  function valorInicial(t) { var m = /R\$\s*-?[\d.]+,\d{2}/.exec(String(t || '')); return m ? m[0].replace(/\s+/g, ' ') : null; }
+
+  /**
+   * ficha (saída de estruturarFicha) -> { limite, gasto:{valor,ate}, media:{valor,n}, km:{estado,valor}, projecao, saldo, falta, alertas }
+   * Tudo que não existir na ficha vira null (a tela mostra "sem dado", nunca inventa número).
+   */
+  function resumoRapido(f) {
+    var out = { limite: null, semFormulario: false, gasto: null, media: null, km: { estado: 'sem-dado', valor: '' }, projecao: null, saldo: null, falta: null, alertas: 0 };
+    ((f && f.secoes) || []).forEach(function (s) {
+      var blocos = s.blocos || [];
+      if (s.chave === 'atencao') out.alertas = blocos.filter(function (b) { return b.t === 'alerta'; }).length;
+      if (s.chave === 'ciclo') blocos.forEach(function (b) {
+        if (b.t !== 'kv') return;
+        var r = (b.c || [])[0] || '', v = (b.c || [])[1] || '';
+        if (/^Limite do formul/.test(r)) { out.limite = valorInicial(v); out.semFormulario = !out.limite; }
+        else if (/^Gasto at/.test(r)) out.gasto = { valor: valorInicial(v), ate: (/at. (\d{2}\/\d{2})/.exec(r) || [])[1] || '' };
+        else if (/^Proje/.test(r)) out.projecao = valorInicial(v);
+        else if (/^Saldo/.test(r)) out.saldo = valorInicial(v);
+        else if (/^Falta/.test(r)) out.falta = valorInicial(v);
+      });
+      if (s.chave === 'gasto') blocos.forEach(function (b) {
+        if (b.t !== 'tabela' || !b.cab) return;
+        var idx = b.cab.indexOf('Gasto R$');
+        if (idx < 0) return;
+        var vals = b.linhas.filter(function (l) { return !/\(atual\)/.test(l[0] || ''); }).map(function (l) { return parseBR(l[idx]); }).filter(function (x) { return !isNaN(x); });
+        if (vals.length) out.media = { valor: fmtRS(vals.reduce(function (a, x) { return a + x; }, 0) / vals.length), n: vals.length };
+      });
+      if (s.chave === 'mobi7') blocos.forEach(function (b) {
+        var c = b.c || [];
+        if (b.t === 'info' && c[0] === 'SEM MOBI7') out.km = { estado: 'sem-carro', valor: '' };
+        else if (b.t === 'alerta' && c[0] === 'MOBI7') out.km = { estado: 'indisponivel', valor: '' };
+        else if (b.t === 'tabela') b.linhas.forEach(function (l) { if (/^Ciclo atual/.test(l[0] || '') && l[1] !== undefined) out.km = { estado: 'ok', valor: l[1] }; });
+      });
+    });
+    return out;
+  }
+
+  var api = { arquivoParaMatriz: arquivoParaMatriz, lerXlsx: lerXlsx, parseCSV: parseCSV, detectarTipo: detectarTipo, reduzirMovimentacao: reduzirMovimentacao, paraTSV: paraTSV, serialParaTexto: serialParaTexto, norm: norm, parseTSV: parseTSV, achaCabecalho: achaCabecalho, removerCpf: removerCpf, agrupar: agrupar, msgErro: msgErro, urlValida: urlValida, rotuloAlerta: rotuloAlerta, estruturarFicha: estruturarFicha, valorParaCopia: valorParaCopia, separarTitulo: separarTitulo, limparColunas: limparColunas, resumoRapido: resumoRapido, parseBR: parseBR, fmtRS: fmtRS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else raiz.ConsultaLib = api;
 })(typeof window !== 'undefined' ? window : this);

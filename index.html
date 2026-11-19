@@ -59,45 +59,31 @@
 
     <!-- consulta -->
     <div id="painel-consulta" role="tabpanel">
-      <div class="cartao">
+      <div id="busca" class="cartao">
         <h2 class="titulo-sec">Qual chamado você vai analisar?</h2>
-        <p class="sub">Digite a matrícula de quem abriu o chamado. Se não souber, digite parte do nome.</p>
-        <div class="grade grade-2">
-          <div class="campo-grande">
+        <p class="sub">Digite a matrícula e, se o chamado pede um valor, quanto foi pedido.</p>
+        <div class="busca-linha">
+          <div>
             <label for="matricula">Matrícula</label>
             <input id="matricula" inputmode="numeric" autocomplete="off" placeholder="Ex.: 12345">
           </div>
           <div>
-            <label for="nome">ou parte do nome</label>
-            <input id="nome" autocomplete="off" placeholder="Ex.: silva">
-          </div>
-        </div>
-        <div id="erro-busca" class="erro-campo" role="alert"></div>
-        <div class="grade grade-2" style="margin-top:14px">
-          <div>
-            <label for="pvalor">Valor que a pessoa pediu (R$) <span class="opc">· opcional</span></label>
+            <label for="pvalor">Pediu quanto? <span class="opc">(R$, opcional)</span></label>
             <input id="pvalor" inputmode="decimal" autocomplete="off" placeholder="Ex.: 200">
           </div>
-          <div>
-            <label for="pkm">KM que a pessoa pediu <span class="opc">· opcional</span></label>
-            <input id="pkm" inputmode="decimal" autocomplete="off" placeholder="Ex.: 350">
+        </div>
+        <details class="mais">
+          <summary>Não sei a matrícula, ou o pedido foi em km</summary>
+          <div class="grade">
+            <div><label for="nome">Parte do nome</label><input id="nome" autocomplete="off" placeholder="Ex.: silva"></div>
+            <div><label for="pkm">Pediu quantos km? <span class="opc">(opcional)</span></label><input id="pkm" inputmode="decimal" autocomplete="off" placeholder="Ex.: 350"></div>
           </div>
-        </div>
-        <p class="dica">Se o chamado pede um valor ou km, preencha: a resposta passa a considerar o que foi pedido.</p>
-        <div class="acoes">
-          <button id="consultar" class="bt bt-p" type="button">Consultar</button>
-          <button id="limpar" class="bt bt-s oculto" type="button">Nova consulta</button>
-        </div>
+        </details>
+        <div id="erro-busca" class="erro-campo" role="alert"></div>
+        <div class="acoes"><button id="consultar" class="bt bt-p bt-largo" type="button">Consultar</button></div>
         <div id="msg-consulta" role="status" aria-live="polite"></div>
-      </div>
-
-      <div id="vazio" class="vazio">
-        <b>Como ler a resposta</b>
-        Depois de consultar, o quadro no topo diz o que fazer:
-        <div class="passos-curtos">
-          <div><b class="verde-t">Verde · PODE ENVIAR</b>Sem alertas e extrato em dia. Siga com o valor mostrado.</div>
-          <div><b class="ambar-t">Amarelo · CONFIRA ANTES</b>Leia os pontos listados. Se não resolver, pergunte ao Rafael ou à Renata.</div>
-          <div><b class="vermelho-t">Vermelho · NÃO DECIDA</b>Falta formulário ou o extrato está velho. Resolva o que está escrito.</div>
+        <div id="vazio" class="legenda" aria-label="Como ler a resposta">
+          <span class="l-ok">Verde: pode enviar</span><span class="l-conf">Amarelo: confira antes</span><span class="l-par">Vermelho: não decida ainda</span>
         </div>
       </div>
       <div id="ficha" class="ficha" aria-live="polite"></div>
